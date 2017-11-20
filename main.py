@@ -7,7 +7,7 @@ import os
 from vizdoom import *
 from time import sleep
 
-max_episode_length = 3
+max_episode_length = 300
 gamma = .99 # discount rate for advantage estimation and reward discounting
 s_size = 7056 # Observations are greyscale frames of 84 * 84 * 1
 a_size = 3 # Agent can move Left, Right, or Fire

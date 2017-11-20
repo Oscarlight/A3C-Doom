@@ -1,10 +1,11 @@
 ## CS 5220: Final Project
 from actor_critic_nn import AC_Network
-import tensorflow as tf
 import numpy as np
 from vizdoom import *
 import scipy.misc
 import scipy.signal
+from helpers import *
+import tensorflow as tf # import tf AFTER import helpers
 
 # Copies one set of variables to another.
 # Used to set worker network parameters to those of global network.
