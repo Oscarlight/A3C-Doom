@@ -9,6 +9,7 @@
 
 ## Run
 python main.py [run_name] [max episode per thread] -thread_num [num of threads]
+
 for example: python main.py run_1 1000 -thread_num 8
 
 ## Reference
