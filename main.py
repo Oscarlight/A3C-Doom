@@ -1,5 +1,6 @@
 from actor_critic_nn import AC_Network
 from worker import Worker
+from create_game import Game
 import tensorflow as tf
 import multiprocessing
 import threading
@@ -7,7 +8,7 @@ import os
 from vizdoom import *
 from time import sleep
 
-max_local_episodes = 10 # max number of episodes of EACH thread
+max_local_episodes = 1 # max number of episodes of EACH thread
 max_episode_length = 300
 gamma = .99 # discount rate for advantage estimation and reward discounting
 s_size = 7056 # Observations are greyscale frames of 84 * 84 * 1
@@ -30,9 +31,10 @@ with tf.device("/cpu:0"):
     workers = []
     # Create worker classes
     for i in range(num_workers):
+        game = Game()
         workers.append(
             Worker(
-                DoomGame(),
+                game.basic(),
                 i,
                 s_size,
                 a_size,
