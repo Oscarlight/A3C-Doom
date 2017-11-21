@@ -6,6 +6,7 @@ import scipy.misc
 import scipy.signal
 from helpers import *
 import tensorflow as tf # import tf AFTER import helpers
+import time
 
 # Copies one set of variables to another.
 # Used to set worker network parameters to those of global network.
@@ -39,18 +40,21 @@ class Worker():
     	a_size,			# number of actions
     	trainer,		# optimizer
     	model_path,		# save model
+    	frame_path,     # save frame
     	# global_episodes	# Depre: local episodes count for worker:0 (tf.Variable)
     ):
         self.name = "worker_" + str(name)
         self.number = name        
         self.model_path = model_path
+        self.frame_path = frame_path
         self.trainer = trainer
         # self.global_episodes = global_episodes
         # self.increment = self.global_episodes.assign_add(1)
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter("train_"+str(self.number))
+        self.summary_writer = tf.summary.FileWriter(
+        	model_path.split('/')[1] + "/train_" + str(self.number))
 
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         self.local_AC = AC_Network(s_size,a_size,self.name,trainer)
@@ -116,6 +120,7 @@ class Worker():
         episode_count = 0
         total_steps = 0
         print ("Starting worker " + str(self.number))
+        start = time.time()
         with sess.as_default(), sess.graph.as_default():                 
             while not coord.should_stop():
                 sess.run(self.update_local_ops)
@@ -197,7 +202,7 @@ class Worker():
                     if self.name == 'worker_0' and episode_count % 25 == 0:
                         time_per_step = 0.05
                         images = np.array(episode_frames)
-                        make_gif(images,'./frames/image'+str(episode_count)+'.gif',
+                        make_gif(images, self.frame_path + '/image'+str(episode_count)+'.gif',
                             duration=len(images)*time_per_step,true_image=True,salience=False)
                     if episode_count % 250 == 0 and self.name == 'worker_0':
                         saver.save(sess,self.model_path+'/model-'+str(episode_count)+'.cptk')
@@ -207,6 +212,7 @@ class Worker():
                     mean_length = np.mean(self.episode_lengths[-5:])
                     mean_value = np.mean(self.episode_mean_values[-5:])
                     summary = tf.Summary()
+                    summary.value.add(tag='Time_stamp', simple_value=float(time.time() - start))
                     summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
                     summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
                     summary.value.add(tag='Perf/Value', simple_value=float(mean_value))
