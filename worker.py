@@ -31,13 +31,22 @@ def discount(x, gamma):
 
 
 class Worker():
-    def __init__(self,game,name,s_size,a_size,trainer,model_path,global_episodes):
+    def __init__(
+    	self,
+    	game,   		# DoomGame
+    	name,			# worker id
+    	s_size,			# dim of observations (each frame)
+    	a_size,			# number of actions
+    	trainer,		# optimizer
+    	model_path,		# save model
+    	# global_episodes	# Depre: local episodes count for worker:0 (tf.Variable)
+    ):
         self.name = "worker_" + str(name)
         self.number = name        
         self.model_path = model_path
         self.trainer = trainer
-        self.global_episodes = global_episodes
-        self.increment = self.global_episodes.assign_add(1)
+        # self.global_episodes = global_episodes
+        # self.increment = self.global_episodes.assign_add(1)
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
@@ -74,7 +83,13 @@ class Worker():
         #End Doom set-up
         self.env = game
         
-    def train(self,rollout,sess,gamma,bootstrap_value):
+    def train(
+    	self,				
+    	rollout,			# episode_buffer: list of list [state, action, reward, next state, isFinish, value]
+    	sess,
+    	gamma,
+    	bootstrap_value
+    ):
         rollout = np.array(rollout)
         observations = rollout[:,0]
         actions = rollout[:,1]
@@ -109,8 +124,17 @@ class Worker():
             feed_dict=feed_dict)
         return v_l / len(rollout),p_l / len(rollout),e_l / len(rollout), g_n,v_n
         
-    def work(self,max_episode_length,gamma,sess,coord,saver):
-        episode_count = sess.run(self.global_episodes)
+    def work(
+    	self,
+    	max_episode_length,
+    	gamma,					# discount rate
+    	sess,					# tf.sess
+    	coord,					# A coordinator for threads (tf.train.Coordinator)
+    	saver,					# tf.train.Saver
+    	max_local_episodes		# the terminated condition of each thread
+    ):
+        # episode_count = sess.run(self.global_episodes) # local counter for each thread
+        episode_count = 0
         total_steps = 0
         print ("Starting worker " + str(self.number))
         with sess.as_default(), sess.graph.as_default():                 
@@ -121,26 +145,35 @@ class Worker():
                 episode_frames = []
                 episode_reward = 0
                 episode_step_count = 0
-                d = False
+                d = False	# Whether the episode is finished or not
                 
                 self.env.new_episode()
                 s = self.env.get_state().screen_buffer
                 episode_frames.append(s)
-                s = process_frame(s)
+                s = process_frame(s)     # preprocess the frame for model input
                 rnn_state = self.local_AC.state_init
                 self.batch_rnn_state = rnn_state
                 while self.env.is_episode_finished() == False:
                     #Take an action using probabilities from policy network output.
-                    a_dist,v,rnn_state = sess.run([self.local_AC.policy,self.local_AC.value,self.local_AC.state_out], 
+                    a_dist,v,rnn_state = sess.run(
+                    	[self.local_AC.policy,self.local_AC.value,self.local_AC.state_out], 
                         feed_dict={self.local_AC.inputs:[s],
                         self.local_AC.state_in[0]:rnn_state[0],
-                        self.local_AC.state_in[1]:rnn_state[1]})
-                    a = np.random.choice(a_dist[0],p=a_dist[0])
+                        self.local_AC.state_in[1]:rnn_state[1]}
+                    )
+                    # pick one action from a_dist[0] from an uniform distribution a_dist[0]
+                    # where a_dist[0] is the softmax output of the policies
+                    a = np.random.choice(
+                    	a_dist[0],
+                    	p=a_dist[0]
+                    )
+                    # get the index of chosen action
                     a = np.argmax(a_dist == a)
-
+                    # take an action
                     r = self.env.make_action(self.actions[a]) / 100.0
                     d = self.env.is_episode_finished()
                     if d == False:
+                    	# if not finished, update the state s1
                         s1 = self.env.get_state().screen_buffer
                         episode_frames.append(s1)
                         s1 = process_frame(s1)
@@ -152,9 +185,9 @@ class Worker():
 
                     episode_reward += r
                     s = s1                    
-                    total_steps += 1
-                    episode_step_count += 1
-                    
+                    total_steps += 1			# total number of steps
+                    episode_step_count += 1 	# number of step in an episode
+
                     # If the episode hasn't ended, but the experience buffer is full, then we
                     # make an update step using that experience rollout.
                     if len(episode_buffer) == 30 and d != True and episode_step_count != max_episode_length - 1:
@@ -164,6 +197,7 @@ class Worker():
                             feed_dict={self.local_AC.inputs:[s],
                             self.local_AC.state_in[0]:rnn_state[0],
                             self.local_AC.state_in[1]:rnn_state[1]})[0,0]
+                       	# train with the experience
                         v_l,p_l,e_l,g_n,v_n = self.train(episode_buffer,sess,gamma,v1)
                         episode_buffer = []
                         sess.run(self.update_local_ops)
@@ -205,6 +239,17 @@ class Worker():
                     self.summary_writer.add_summary(summary, episode_count)
 
                     self.summary_writer.flush()
-                if self.name == 'worker_0':
-                    sess.run(self.increment)
+
+                # TODO: We don't need it since it is actually the 'local episode
+                # count' for worker_0
+                # if self.name == 'worker_0':
+                #     sess.run(self.increment)
+
                 episode_count += 1
+                # print(self.name + ' ' \
+                # 		+ str(episode_count))
+                if episode_count >= max_local_episodes:
+                	# coord.request_stop() # cause other thread to stop too
+                	print(self.name + ' yields with local episodes = ' \
+                		+ str(episode_count))
+                	break
