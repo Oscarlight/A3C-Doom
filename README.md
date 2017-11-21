@@ -8,7 +8,9 @@
 3. Other neccesary packages such as scipy, numpy...
 
 ## Run
-run main.py
+python main.py [run_name] [max episode per thread] -thread_num [num of threads]
+
+for example: python main.py run_1 1000 -thread_num 8
 
 ## Reference
 https://github.com/awjuliani/DeepRL-Agents/blob/master/A3C-Doom.ipynb
