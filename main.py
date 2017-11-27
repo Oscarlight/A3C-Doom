@@ -47,7 +47,7 @@ with tf.device("/cpu:0"):
         game = Game()
         workers.append(
             Worker(
-                game.basic(),
+                game.health_gathering(),
                 i,
                 s_size,
                 a_size,
