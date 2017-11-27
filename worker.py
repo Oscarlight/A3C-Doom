@@ -21,6 +21,7 @@ def update_target_graph(from_scope,to_scope):
 
 # Processes Doom screen image to produce cropped and resized image. 
 def process_frame(frame):
+    
     s = frame[10:-10,30:-30]
     s = scipy.misc.imresize(s,[84,84])
     s = np.reshape(s,[np.prod(s.shape)]) / 255.0
@@ -133,6 +134,7 @@ class Worker():
                 
                 self.env.new_episode()
                 s = self.env.get_state().screen_buffer
+                print(type(s))
                 episode_frames.append(s)
                 s = process_frame(s)     # preprocess the frame for model input
                 rnn_state = self.local_AC.state_init
